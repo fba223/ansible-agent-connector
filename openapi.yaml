@@ -1,0 +1,319 @@
+openapi: 3.0.3
+info:
+  title: Copilot Ansible Connector API
+  description: >
+    REST endpoints exposed by the Copilot Ansible Connector running on an
+    Ansible master node. The connector enables Copilot Studio agents to manage
+    inventory, upload generated playbooks, start executions, stream logs, and
+    collect run summaries.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+    description: Local deployment (default)
+  - url: https://connector.example.com
+    description: Example production endpoint
+tags:
+  - name: Health
+  - name: Inventory
+  - name: Files
+  - name: Playbooks
+paths:
+  /healthz:
+    get:
+      tags: [Health]
+      summary: Health probe
+      operationId: getHealthz
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /inventory/hosts:
+    get:
+      tags: [Inventory]
+      summary: List inventory hosts
+      operationId: listHosts
+      responses:
+        "200":
+          description: Array of inventory host records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InventoryHostResponse"
+    post:
+      tags: [Inventory]
+      summary: Add or update a host
+      operationId: upsertHost
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HostRequest"
+      responses:
+        "201":
+          description: Host added or updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryHostResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /inventory/hosts/{name}:
+    delete:
+      tags: [Inventory]
+      summary: Delete a host
+      operationId: deleteHost
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Host deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /files/write:
+    post:
+      tags: [Files]
+      summary: Write playbook file contents
+      operationId: writeFile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WriteFileRequest"
+      responses:
+        "200":
+          description: File write confirmation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  path:
+                    type: string
+                    description: Absolute path to the written file on disk.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /playbooks/run:
+    post:
+      tags: [Playbooks]
+      summary: Start playbook execution
+      operationId: runPlaybook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunPlaybookRequest"
+      responses:
+        "202":
+          description: Playbook execution scheduled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /runs/{run_id}:
+    get:
+      tags: [Playbooks]
+      summary: Get execution status
+      operationId: getRunStatus
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Run status payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunStatusResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /stream/{run_id}:
+    get:
+      tags: [Playbooks]
+      summary: Stream execution logs (Server-Sent Events)
+      operationId: streamLogs
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: >
+            Stream of log lines formatted as server-sent events (`text/event-stream`).
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              examples:
+                logStream:
+                  summary: Example SSE payload
+                  value: |
+                    data: PLAY [All] *********************************************************************
+
+                    data: ok: [web-01]
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  schemas:
+    HostRequest:
+      type: object
+      required: ["name", "hostname"]
+      properties:
+        name:
+          type: string
+          description: Logical inventory host identifier (no spaces).
+          example: web-01
+        hostname:
+          type: string
+          description: Reachable IP address or FQDN.
+          example: 10.0.0.10
+        username:
+          type: string
+          nullable: true
+          example: ubuntu
+        password:
+          type: string
+          nullable: true
+          description: Optional SSH password (prefer SSH keys for production).
+        port:
+          type: integer
+          nullable: true
+          example: 22
+        groups:
+          type: array
+          items:
+            type: string
+          example: ["web"]
+        variables:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            ansible_become: "true"
+    InventoryHostResponse:
+      allOf:
+        - $ref: "#/components/schemas/HostRequest"
+      properties:
+        variables:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            ansible_become: "true"
+    WriteFileRequest:
+      type: object
+      required: ["relative_path", "content"]
+      properties:
+        relative_path:
+          type: string
+          description: Path relative to the configured playbooks directory.
+          example: quickstart/install_nginx.yml
+        content:
+          type: string
+          description: Raw file contents to persist (typically YAML).
+          example: |
+            - hosts: all
+              become: true
+              tasks:
+                - name: Install nginx
+                  apt:
+                    name: nginx
+                    state: present
+                    update_cache: true
+    RunPlaybookRequest:
+      type: object
+      required: ["relative_playbook_path"]
+      properties:
+        relative_playbook_path:
+          type: string
+          description: Path to the playbook relative to the playbooks storage directory.
+          example: quickstart/install_nginx.yml
+        extra_args:
+          type: array
+          items:
+            type: string
+          description: Additional CLI arguments passed to `ansible-playbook`.
+          example: ["-vvv"]
+    RunResponse:
+      type: object
+      required: ["run_id", "status"]
+      properties:
+        run_id:
+          type: string
+          description: UUID of the asynchronous execution.
+          example: 5d3f3a33-224d-471d-b969-9c495a859f9a
+        status:
+          type: string
+          description: Initial status (`pending` or `running`).
+          example: pending
+        summary:
+          type: string
+          nullable: true
+          description: Human-readable summary (populated once execution completes).
+    RunStatusResponse:
+      type: object
+      required: ["run_id", "status"]
+      properties:
+        run_id:
+          type: string
+          example: 5d3f3a33-224d-471d-b969-9c495a859f9a
+        status:
+          type: string
+          enum: ["pending", "running", "succeeded", "failed"]
+          example: running
+        return_code:
+          type: integer
+          nullable: true
+          example: 0
+        summary:
+          type: string
+          nullable: true
+          example: Playbook completed successfully. Recap: web-01 ok=3 changed=1 failed=0
+        error:
+          type: string
+          nullable: true
+          example: Process exited with code 2
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+          example: Host not found
+  responses:
+    BadRequest:
+      description: Invalid input supplied.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Requested resource does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"

@@ -72,7 +72,7 @@ git --version
    ```bash
    cd /opt
    sudo git clone https://github.com/fba223/ansible-agent-connector.git
-   sudo chown -R $USER:$USER copilot-ansible-connector
+   sudo chown -R $USER:$USER ansible-agent-connector
    cd ansible-agent-connector
    ```
    若使用 SSH，替换为 `git@github.com:...`。
@@ -80,18 +80,19 @@ git --version
    ```bash
    sudo useradd -m -s /bin/bash ansibleagent
    sudo usermod -aG sudo ansibleagent
-   sudo chown -R ansibleagent:ansibleagent /opt/copilot-ansible-connector
+   sudo chown -R ansibleagent:ansibleagent /opt/ansible-agent-connector
    sudo -iu ansibleagent
-   cd /opt/copilot-ansible-connector
+   cd /opt/ansible-agent-connector
    ```
 
 ### 3：创建 Python 虚拟环境
 ```bash
-sudo python3 -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip wheel setuptools
 pip install -e .
 ```
+（请以仓库所有者身份运行上述命令，避免使用 `sudo` 生成 root 拥有的虚拟环境。）
 可选：安装测试依赖并运行测试（若 `pytest` 可用）：
 ```bash
 pip install -e .[dev]
@@ -124,11 +125,11 @@ pytest
 source .venv/bin/activate
 copilot-ansible-agent
 ```
-默认监听 `http://0.0.0.0:8000`。如需更换端口：
+默认监听 `http://0.0.0.0:8000`。如需调整监听参数，可直接调用 `uvicorn`：
 ```bash
-UVICORN_HOST=0.0.0.0 UVICORN_PORT=9000 copilot-ansible-agent
+uvicorn copilot_ansible_agent.api:app --host 0.0.0.0 --port 9000
 ```
-（或直接使用 `uvicorn copilot_ansible_agent.api:app --host 0.0.0.0 --port 9000`）。
+（也可以在 systemd 单元中修改 `ExecStart` 增加 `--port` 等参数。）
 
 ### 6：注册为 systemd 服务
 1. 创建 systemd 单元文件（请根据实际用户和路径替换）：
@@ -142,15 +143,21 @@ UVICORN_HOST=0.0.0.0 UVICORN_PORT=9000 copilot-ansible-agent
    [Service]
    Type=simple
    User=ansibleagent
-   WorkingDirectory=/opt/copilot-ansible-connector
-   Environment="PATH=/opt/copilot-ansible-connector/.venv/bin"
-   ExecStart=/opt/copilot-ansible-connector/.venv/bin/copilot-ansible-agent
+   WorkingDirectory=/opt/ansible-agent-connector
+   Environment="PATH=/opt/ansible-agent-connector/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
+   ExecStart=/opt/ansible-agent-connector/.venv/bin/copilot-ansible-agent
    Restart=on-failure
    RestartSec=5
 
    [Install]
    WantedBy=multi-user.target
    EOF
+   ```
+   若 `ansible-playbook` 不在上述 PATH 中，可在 `[Service]` 节中额外加入
+   `Environment="ANSIBLE_PLAYBOOK_BINARY=/path/to/ansible-playbook"` 进行覆盖。
+   同时确保运行用户对 `/opt/ansible-agent-connector/data`（默认数据目录）具有写权限：
+   ```bash
+   sudo chown -R ansibleagent:ansibleagent /opt/ansible-agent-connector/data
    ```
 2. 激活服务：
    ```bash
@@ -209,7 +216,7 @@ sudo ufw status
    curl http://127.0.0.1:8000/runs/$RUN_ID
    curl http://127.0.0.1:8000/stream/$RUN_ID
    ```
-若返回报错，请检查 `journalctl` 日志以及 `/data` 目录权限。
+若返回报错，请检查 `journalctl` 日志以及项目内 `data/` 目录的权限（默认位于仓库根目录）。
 
 ### 9：连接 Copilot Studio
 1. 在 Copilot Studio 中打开“插件/连接器”，创建新连接器。  

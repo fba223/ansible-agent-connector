@@ -52,30 +52,8 @@ AI 驱动的 Ansible Connector（Copilot Studio 工具后端）
 
 以下流程假设使用 **Ubuntu Server 22.04 LTS**，并以最常见的 SSH+systemd 部署为例。每个步骤都给出完整命令，照抄即可完成环境搭建。其他发行版请参考附录。
 
-### 步骤 A：准备 GitHub 仓库
-1. 在 GitHub 控制台创建空仓库 `copilot-ansible-connector`（无需 README）。  
-2. 在本地项目目录执行：
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial connector implementation"
-   git remote add origin https://github.com/<your-account>/copilot-ansible-connector.git
-   git branch -M main
-   git push -u origin main
-   ```
-   如使用 SSH，将远端地址改为 `git@github.com:<your-account>/copilot-ansible-connector.git`。
-3. 验证 GitHub 上仓库文件是否同步成功。
 
-### 步骤 B：创建并配置虚拟机
-1. 申请一台云服务器（建议 2 vCPU / 4 GiB / 20 GiB），系统镜像选 Ubuntu 22.04。  
-2. 配置安全组或防火墙：允许入站 TCP 22（SSH）及 8000（后续服务端口）。  
-3. 通过 SSH 登录：
-   ```bash
-   ssh ubuntu@<vm-ip>
-   sudo whoami   # 确认具备 root 权限
-   ```
-
-### 步骤 C：安装基础软件
+### 1：安装基础软件
 ```bash
 sudo apt update
 sudo apt install -y software-properties-common curl jq git ansible
@@ -89,13 +67,13 @@ ansible --version
 git --version
 ```
 
-### 步骤 D：拉取仓库并准备运行用户
+### 2：拉取仓库并准备运行用户
 1. 克隆仓库（默认放在 `/opt`）：
    ```bash
    cd /opt
-   sudo git clone https://github.com/<your-account>/copilot-ansible-connector.git
+   sudo git clone https://github.com/fba223/ansible-agent-connector.git
    sudo chown -R $USER:$USER copilot-ansible-connector
-   cd copilot-ansible-connector
+   cd ansible-agent-connector
    ```
    若使用 SSH，替换为 `git@github.com:...`。
 2. （可选）创建专用运行用户 `ansibleagent` 并转移文件所有权：
@@ -107,9 +85,9 @@ git --version
    cd /opt/copilot-ansible-connector
    ```
 
-### 步骤 E：创建 Python 虚拟环境
+### 3：创建 Python 虚拟环境
 ```bash
-python3 -m venv .venv
+sudo python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip wheel setuptools
 pip install -e .
@@ -120,7 +98,7 @@ pip install -e .[dev]
 pytest
 ```
 
-### 步骤 F：准备 Ansible 凭据
+### 4：准备 Ansible 凭据
 1. 将连接目标主机所需的 SSH Key 放置于 `~/.ssh`：
    ```bash
    mkdir -p ~/.ssh
@@ -141,7 +119,7 @@ pytest
    EOF
    ```
 
-### 步骤 G：开发模式启动验证
+### 5：开发模式启动验证
 ```bash
 source .venv/bin/activate
 copilot-ansible-agent
@@ -152,7 +130,7 @@ UVICORN_HOST=0.0.0.0 UVICORN_PORT=9000 copilot-ansible-agent
 ```
 （或直接使用 `uvicorn copilot_ansible_agent.api:app --host 0.0.0.0 --port 9000`）。
 
-### 步骤 H：注册为 systemd 服务
+### 6：注册为 systemd 服务
 1. 创建 systemd 单元文件（请根据实际用户和路径替换）：
    ```bash
    sudo tee /etc/systemd/system/copilot-ansible-agent.service <<'EOF'
@@ -185,7 +163,7 @@ UVICORN_HOST=0.0.0.0 UVICORN_PORT=9000 copilot-ansible-agent
    sudo journalctl -u copilot-ansible-agent -f
    ```
 
-### 步骤 I：开放防火墙端口
+### 7：开放防火墙端口
 若使用 UFW：
 ```bash
 sudo ufw allow OpenSSH
@@ -195,7 +173,7 @@ sudo ufw status
 ```
 在云供应商控制台也需开放对应端口。
 
-### 步骤 J：API 功能验证
+### 8：API 功能验证
 1. 健康检查：
    ```bash
    curl http://127.0.0.1:8000/healthz
@@ -233,7 +211,7 @@ sudo ufw status
    ```
 若返回报错，请检查 `journalctl` 日志以及 `/data` 目录权限。
 
-### 步骤 K：连接 Copilot Studio
+### 9：连接 Copilot Studio
 1. 在 Copilot Studio 中打开“插件/连接器”，创建新连接器。  
 2. 指定基础 URL（如 `https://connector.example.com`，若无域名可用公网 IP）。  
 3. 新建动作：
@@ -245,7 +223,7 @@ sudo ufw status
    - `GET /stream/{run_id}` → “订阅执行日志”（SSE）。  
 4. 在 Agent Flow 中使用这些动作，使用变量存储 `run_id` 并轮询 `/runs/{run_id}`；前端可通过 SSE 实时展示 `/stream/{run_id}` 日志。
 
-### 步骤 L：常见问题排查
+### 10：常见问题排查
 ```text
 - 端口无法访问：确认安全组/UFW/systemd 均已允许；使用 `ss -tlnp | grep 8000` 查看监听状态。
 - Playbook 执行失败：查看 `/stream/{run_id}` 输出；确认被管节点 SSH 凭据正确。

@@ -89,10 +89,9 @@ git --version
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install --upgrade pip wheel setuptools
 pip install -e .
 ```
-（请以仓库所有者身份运行上述命令，避免使用 `sudo` 生成 root 拥有的虚拟环境。）
+（请以仓库所有者身份运行上述命令，避免使用 `sudo` 生成 root 拥有的虚拟环境。如果处于离线/受限网络环境，可跳过 `pip install --upgrade ...` 之类的升级命令。）
 可选：安装测试依赖并运行测试（若 `pytest` 可用）：
 ```bash
 pip install -e .[dev]

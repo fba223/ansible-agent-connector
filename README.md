@@ -15,10 +15,10 @@ AI 驱动的 Ansible Connector（Copilot Studio 工具后端）
 
    Inventory 数据落地为 `data/inventory/inventory.yml`，Ansible 随时可用。
 
-3. **Playbook 执行与日志流**  
-   - `POST /playbooks/run` 启动 `ansible-playbook` 任务，返回 `run_id`  
-   - `GET /stream/{run_id}` 通过 SSE 持续推送实时日志  
-   - `GET /runs/{run_id}` 查询执行状态与摘要  
+3. **Playbook 执行与状态查询**
+   - `POST /playbooks/run` 启动 `ansible-playbook` 任务，返回 `run_id`
+   - `GET /runs/{run_id}` 查询执行状态与摘要
+   > **提示**：实际 API 仍提供 SSE 日志流，但 Copilot Studio 自定义连接器目前无法导入 `text/event-stream`，因此默认 OpenAPI 定义未公开该接口。
 
 4. **健康检查**  
    `GET /healthz` 供 Copilot Studio 探测服务存活状态。

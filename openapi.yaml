@@ -1,4 +1,4 @@
-openapi: 3.0.3
+openapi: 3.0.1
 info:
   title: Copilot Ansible Connector API
   description: >
@@ -47,7 +47,39 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/InventoryHostResponse"
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      description: Logical inventory host identifier (no spaces).
+                      example: web-01
+                    hostname:
+                      type: string
+                      description: Reachable IP address or FQDN.
+                      example: 10.0.0.10
+                    username:
+                      type: string
+                      nullable: true
+                      example: ubuntu
+                    password:
+                      type: string
+                      nullable: true
+                      description: Optional SSH password (prefer SSH keys for production).
+                    port:
+                      type: integer
+                      nullable: true
+                      example: 22
+                    groups:
+                      type: array
+                      items:
+                        type: string
+                      example: ["web"]
+                    variables:
+                      type: object
+                      additionalProperties:
+                        type: string
+                      example:
+                        ansible_become: "true"
     post:
       tags: [Inventory]
       summary: Add or update a host
@@ -57,16 +89,89 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/HostRequest"
+              type: object
+              required: ["name", "hostname"]
+              properties:
+                name:
+                  type: string
+                  description: Logical inventory host identifier (no spaces).
+                  example: web-01
+                hostname:
+                  type: string
+                  description: Reachable IP address or FQDN.
+                  example: 10.0.0.10
+                username:
+                  type: string
+                  nullable: true
+                  example: ubuntu
+                password:
+                  type: string
+                  nullable: true
+                  description: Optional SSH password (prefer SSH keys for production).
+                port:
+                  type: integer
+                  nullable: true
+                  example: 22
+                groups:
+                  type: array
+                  items:
+                    type: string
+                  example: ["web"]
+                variables:
+                  type: object
+                  additionalProperties:
+                    type: string
+                  example:
+                    ansible_become: "true"
       responses:
-        "201":
+        "200":
           description: Host added or updated
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InventoryHostResponse"
+                type: object
+                properties:
+                  name:
+                    type: string
+                    description: Logical inventory host identifier (no spaces).
+                    example: web-01
+                  hostname:
+                    type: string
+                    description: Reachable IP address or FQDN.
+                    example: 10.0.0.10
+                  username:
+                    type: string
+                    nullable: true
+                    example: ubuntu
+                  password:
+                    type: string
+                    nullable: true
+                    description: Optional SSH password (prefer SSH keys for production).
+                  port:
+                    type: integer
+                    nullable: true
+                    example: 22
+                  groups:
+                    type: array
+                    items:
+                      type: string
+                    example: ["web"]
+                  variables:
+                    type: object
+                    additionalProperties:
+                      type: string
+                    example:
+                      ansible_become: "true"
         "400":
-          $ref: "#/components/responses/BadRequest"
+          description: Invalid input supplied.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: Host not found
   /inventory/hosts/{name}:
     delete:
       tags: [Inventory]
@@ -79,10 +184,26 @@ paths:
           schema:
             type: string
       responses:
-        "204":
+        "200":
           description: Host deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: Host deleted
         "404":
-          $ref: "#/components/responses/NotFound"
+          description: Requested resource does not exist.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: Host not found
   /files/write:
     post:
       tags: [Files]
@@ -93,7 +214,25 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/WriteFileRequest"
+              type: object
+              required: ["relative_path", "content"]
+              properties:
+                relative_path:
+                  type: string
+                  description: Path relative to the configured playbooks directory.
+                  example: quickstart/install_nginx.yml
+                content:
+                  type: string
+                  description: Raw file contents to persist (typically YAML).
+                  example: |
+                    - hosts: all
+                      become: true
+                      tasks:
+                        - name: Install nginx
+                          apt:
+                            name: nginx
+                            state: present
+                            update_cache: true
       responses:
         "200":
           description: File write confirmation
@@ -106,7 +245,15 @@ paths:
                     type: string
                     description: Absolute path to the written file on disk.
         "400":
-          $ref: "#/components/responses/BadRequest"
+          description: Invalid input supplied.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: Invalid file path
   /playbooks/run:
     post:
       tags: [Playbooks]
@@ -117,18 +264,60 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RunPlaybookRequest"
+              type: object
+              required: ["relative_playbook_path"]
+              properties:
+                relative_playbook_path:
+                  type: string
+                  description: Path to the playbook relative to the playbooks storage directory.
+                  example: quickstart/install_nginx.yml
+                extra_args:
+                  type: array
+                  items:
+                    type: string
+                  description: Additional CLI arguments passed to `ansible-playbook`.
+                  example: ["-vvv"]
       responses:
-        "202":
+        "200":
           description: Playbook execution scheduled
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RunResponse"
+                type: object
+                required: ["run_id", "status"]
+                properties:
+                  run_id:
+                    type: string
+                    description: UUID of the asynchronous execution.
+                    example: 5d3f3a33-224d-471d-b969-9c495a859f9a
+                  status:
+                    type: string
+                    description: Initial status (`pending` or `running`).
+                    example: pending
+                  summary:
+                    type: string
+                    nullable: true
+                    description: Human-readable summary (populated once execution completes).
         "400":
-          $ref: "#/components/responses/BadRequest"
+          description: Invalid input supplied.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: Missing playbook path
         "404":
-          $ref: "#/components/responses/NotFound"
+          description: Requested resource does not exist.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: Playbook not found
   /runs/{run_id}:
     get:
       tags: [Playbooks]
@@ -146,202 +335,35 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RunStatusResponse"
+                type: object
+                required: ["run_id", "status"]
+                properties:
+                  run_id:
+                    type: string
+                    example: 5d3f3a33-224d-471d-b969-9c495a859f9a
+                  status:
+                    type: string
+                    enum: ["pending", "running", "succeeded", "failed"]
+                    example: running
+                  return_code:
+                    type: integer
+                    nullable: true
+                    example: 0
+                  summary:
+                    type: string
+                    nullable: true
+                    example: Playbook completed successfully. Recap: web-01 ok=3 changed=1 failed=0
+                  error:
+                    type: string
+                    nullable: true
+                    example: Process exited with code 2
         "404":
-          $ref: "#/components/responses/NotFound"
-  /stream/{run_id}:
-    get:
-      tags: [Playbooks]
-      summary: Stream execution logs (Server-Sent Events)
-      operationId: streamLogs
-      parameters:
-        - name: run_id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: >
-            Stream of log lines formatted as server-sent events (`text/event-stream`).
+          description: Requested resource does not exist.
           content:
-            text/event-stream:
+            application/json:
               schema:
-                type: string
-              examples:
-                logStream:
-                  summary: Example SSE payload
-                  value: |
-                    data: PLAY [All] *********************************************************************
-
-                    data: ok: [web-01]
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-components:
-  schemas:
-    HostRequest:
-      type: object
-      required: ["name", "hostname"]
-      properties:
-        name:
-          type: string
-          description: Logical inventory host identifier (no spaces).
-          example: web-01
-        hostname:
-          type: string
-          description: Reachable IP address or FQDN.
-          example: 10.0.0.10
-        username:
-          type: string
-          nullable: true
-          example: ubuntu
-        password:
-          type: string
-          nullable: true
-          description: Optional SSH password (prefer SSH keys for production).
-        port:
-          type: integer
-          nullable: true
-          example: 22
-        groups:
-          type: array
-          items:
-            type: string
-          example: ["web"]
-        variables:
-          type: object
-          additionalProperties:
-            type: string
-          example:
-            ansible_become: "true"
-    InventoryHostResponse:
-      type: object
-      description: >
-        Response payload describing an inventory host record as stored by the
-        connector.
-      required: ["name", "hostname"]
-      properties:
-        name:
-          type: string
-          description: Logical inventory host identifier (no spaces).
-          example: web-01
-        hostname:
-          type: string
-          description: Reachable IP address or FQDN.
-          example: 10.0.0.10
-        username:
-          type: string
-          nullable: true
-          example: ubuntu
-        password:
-          type: string
-          nullable: true
-          description: Optional SSH password (prefer SSH keys for production).
-        port:
-          type: integer
-          nullable: true
-          example: 22
-        groups:
-          type: array
-          items:
-            type: string
-          example: ["web"]
-        variables:
-          type: object
-          additionalProperties:
-            type: string
-          example:
-            ansible_become: "true"
-    WriteFileRequest:
-      type: object
-      required: ["relative_path", "content"]
-      properties:
-        relative_path:
-          type: string
-          description: Path relative to the configured playbooks directory.
-          example: quickstart/install_nginx.yml
-        content:
-          type: string
-          description: Raw file contents to persist (typically YAML).
-          example: |
-            - hosts: all
-              become: true
-              tasks:
-                - name: Install nginx
-                  apt:
-                    name: nginx
-                    state: present
-                    update_cache: true
-    RunPlaybookRequest:
-      type: object
-      required: ["relative_playbook_path"]
-      properties:
-        relative_playbook_path:
-          type: string
-          description: Path to the playbook relative to the playbooks storage directory.
-          example: quickstart/install_nginx.yml
-        extra_args:
-          type: array
-          items:
-            type: string
-          description: Additional CLI arguments passed to `ansible-playbook`.
-          example: ["-vvv"]
-    RunResponse:
-      type: object
-      required: ["run_id", "status"]
-      properties:
-        run_id:
-          type: string
-          description: UUID of the asynchronous execution.
-          example: 5d3f3a33-224d-471d-b969-9c495a859f9a
-        status:
-          type: string
-          description: Initial status (`pending` or `running`).
-          example: pending
-        summary:
-          type: string
-          nullable: true
-          description: Human-readable summary (populated once execution completes).
-    RunStatusResponse:
-      type: object
-      required: ["run_id", "status"]
-      properties:
-        run_id:
-          type: string
-          example: 5d3f3a33-224d-471d-b969-9c495a859f9a
-        status:
-          type: string
-          enum: ["pending", "running", "succeeded", "failed"]
-          example: running
-        return_code:
-          type: integer
-          nullable: true
-          example: 0
-        summary:
-          type: string
-          nullable: true
-          example: Playbook completed successfully. Recap: web-01 ok=3 changed=1 failed=0
-        error:
-          type: string
-          nullable: true
-          example: Process exited with code 2
-    ErrorResponse:
-      type: object
-      properties:
-        detail:
-          type: string
-          example: Host not found
-  responses:
-    BadRequest:
-      description: Invalid input supplied.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorResponse"
-    NotFound:
-      description: Requested resource does not exist.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorResponse"
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: Run not found

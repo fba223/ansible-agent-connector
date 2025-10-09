@@ -216,9 +216,37 @@ components:
           example:
             ansible_become: "true"
     InventoryHostResponse:
-      allOf:
-        - $ref: "#/components/schemas/HostRequest"
+      type: object
+      description: >
+        Response payload describing an inventory host record as stored by the
+        connector.
+      required: ["name", "hostname"]
       properties:
+        name:
+          type: string
+          description: Logical inventory host identifier (no spaces).
+          example: web-01
+        hostname:
+          type: string
+          description: Reachable IP address or FQDN.
+          example: 10.0.0.10
+        username:
+          type: string
+          nullable: true
+          example: ubuntu
+        password:
+          type: string
+          nullable: true
+          description: Optional SSH password (prefer SSH keys for production).
+        port:
+          type: integer
+          nullable: true
+          example: 22
+        groups:
+          type: array
+          items:
+            type: string
+          example: ["web"]
         variables:
           type: object
           additionalProperties:

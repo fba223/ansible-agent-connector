@@ -59,15 +59,14 @@ paths:
                       example: 10.0.0.10
                     username:
                       type: string
-                      nullable: true
+                      description: Optional SSH username used for Ansible connections.
                       example: ubuntu
                     password:
                       type: string
-                      nullable: true
                       description: Optional SSH password (prefer SSH keys for production).
                     port:
                       type: integer
-                      nullable: true
+                      description: Optional SSH port (defaults to 22 when omitted).
                       example: 22
                     groups:
                       type: array
@@ -102,15 +101,14 @@ paths:
                   example: 10.0.0.10
                 username:
                   type: string
-                  nullable: true
+                  description: Optional SSH username used for Ansible connections.
                   example: ubuntu
                 password:
                   type: string
-                  nullable: true
                   description: Optional SSH password (prefer SSH keys for production).
                 port:
                   type: integer
-                  nullable: true
+                  description: Optional SSH port (defaults to 22 when omitted).
                   example: 22
                 groups:
                   type: array
@@ -141,15 +139,14 @@ paths:
                     example: 10.0.0.10
                   username:
                     type: string
-                    nullable: true
+                    description: Optional SSH username used for Ansible connections.
                     example: ubuntu
                   password:
                     type: string
-                    nullable: true
                     description: Optional SSH password (prefer SSH keys for production).
                   port:
                     type: integer
-                    nullable: true
+                    description: Optional SSH port (defaults to 22 when omitted).
                     example: 22
                   groups:
                     type: array
@@ -296,8 +293,7 @@ paths:
                     example: pending
                   summary:
                     type: string
-                    nullable: true
-                    description: Human-readable summary (populated once execution completes).
+                    description: Human-readable summary (populated once execution completes). Optional until the run finishes.
         "400":
           description: Invalid input supplied.
           content:
@@ -347,15 +343,15 @@ paths:
                     example: running
                   return_code:
                     type: integer
-                    nullable: true
+                    description: Process exit code once the playbook completes.
                     example: 0
                   summary:
                     type: string
-                    nullable: true
+                    description: Playbook completion summary, provided after execution finishes.
                     example: Playbook completed successfully. Recap: web-01 ok=3 changed=1 failed=0
                   error:
                     type: string
-                    nullable: true
+                    description: Error message captured if the playbook fails.
                     example: Process exited with code 2
         "404":
           description: Requested resource does not exist.

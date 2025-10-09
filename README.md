@@ -68,22 +68,18 @@ git --version
 ```
 
 ### 2：拉取仓库并准备运行用户
-1. 克隆仓库（默认放在 `/opt`）：
+1. 克隆仓库到 `azureuser` 的家目录（Azure 默认管理员账号）：
    ```bash
-   cd /opt
-   sudo git clone https://github.com/fba223/ansible-agent-connector.git
-   sudo chown -R $USER:$USER ansible-agent-connector
+   cd ~
+   git clone https://github.com/fba223/ansible-agent-connector.git
    cd ansible-agent-connector
    ```
-   若使用 SSH，替换为 `git@github.com:...`。
-2. （可选）创建专用运行用户 `ansibleagent` 并转移文件所有权：
+   若使用 SSH，替换为 `git@github.com:...`。项目推荐直接以当前登录用户（假设为 `azureuser`）运行，省去在 `/opt` 下拷贝与 `sudo chown` 的步骤。
+2. 若已存在旧的克隆目录，可先备份或删除再重新拉取：
    ```bash
-   sudo useradd -m -s /bin/bash ansibleagent
-   sudo usermod -aG sudo ansibleagent
-   sudo chown -R ansibleagent:ansibleagent /opt/ansible-agent-connector
-   sudo -iu ansibleagent
-   cd /opt/ansible-agent-connector
+   mv ~/ansible-agent-connector ~/ansible-agent-connector.bak # 如需备份
    ```
+   或使用 `git pull` 更新到最新代码。
 
 ### 3：创建 Python 虚拟环境
 ```bash
@@ -141,10 +137,10 @@ uvicorn copilot_ansible_agent.api:app --host 0.0.0.0 --port 9000
 
    [Service]
    Type=simple
-   User=ansibleagent
-   WorkingDirectory=/opt/ansible-agent-connector
-   Environment="PATH=/opt/ansible-agent-connector/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
-   ExecStart=/opt/ansible-agent-connector/.venv/bin/copilot-ansible-agent
+   User=azureuser
+   WorkingDirectory=/home/azureuser/ansible-agent-connector
+   Environment="PATH=/home/azureuser/ansible-agent-connector/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
+   ExecStart=/home/azureuser/ansible-agent-connector/.venv/bin/copilot-ansible-agent
    Restart=on-failure
    RestartSec=5
 
@@ -154,9 +150,10 @@ uvicorn copilot_ansible_agent.api:app --host 0.0.0.0 --port 9000
    ```
    若 `ansible-playbook` 不在上述 PATH 中，可在 `[Service]` 节中额外加入
    `Environment="ANSIBLE_PLAYBOOK_BINARY=/path/to/ansible-playbook"` 进行覆盖。
-   同时确保运行用户对 `/opt/ansible-agent-connector/data`（默认数据目录）具有写权限：
+   若实际部署账号不是 `azureuser`，请将以上路径中的用户名替换为目标账号。
+   同时确保运行用户对 `/home/azureuser/ansible-agent-connector/data`（默认数据目录）具有写权限：
    ```bash
-   sudo chown -R ansibleagent:ansibleagent /opt/ansible-agent-connector/data
+   sudo chown -R azureuser:azureuser /home/azureuser/ansible-agent-connector/data
    ```
 2. 激活服务：
    ```bash
